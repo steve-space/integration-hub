@@ -10,6 +10,7 @@ Platform promotes):
 
 See docs/SOLUTION_DESIGN.md for the full architecture write-up and a diagram.
 """
+
 from contextlib import asynccontextmanager
 
 import httpx
@@ -44,3 +45,11 @@ app.include_router(experience_router)
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+"""
+The API is designed to be deployed as a single FastAPI app, with a single
+HTTP client shared across all requests. This is a deliberate design choice
+to minimize the number of TCP connections we need to open to the backend
+systems, and to keep the app as simple and stateless as possible.
+"""
