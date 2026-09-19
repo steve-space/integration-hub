@@ -1,0 +1,104 @@
+#%RAML 1.0
+title: Integration Hub — Experience API
+version: v1
+baseUri: http://localhost:8000
+mediaType: application/json
+
+description: |
+  Consumer-facing API for the storefront. Combines stock data from the
+  legacy warehouse system and pricing/promotion data from the pricing
+  system into one unified product-availability response.
+
+  See docs/SOLUTION_DESIGN.md for the full architecture and
+  docs/MAPPING_SPECIFICATION.md for the field-by-field transformation
+  rules this API's response is built from.
+
+types:
+  ProductAvailability:
+    type: object
+    properties:
+      sku:
+        type: string
+        example: WM-1001
+      product_name:
+        type: string
+        example: Wempe Iron Diver Chronograph
+      in_stock:
+        type: boolean
+      quantity_available:
+        type: integer
+        minimum: 0
+      currency:
+        type: string
+        example: EUR
+      base_price:
+        type: number
+        description: Catalog price in decimal currency units, before any discount.
+      discount_percent:
+        type: integer
+        minimum: 0
+        maximum: 100
+      promo_active:
+        type: boolean
+        description: Whether an active promotion was found and applied.
+      final_price:
+        type: number
+        description: base_price with the active discount applied, if any.
+      warehouse_location:
+        type: string
+        example: HH-01
+
+  ErrorResponse:
+    type: object
+    properties:
+      detail:
+        type: string
+
+/products:
+  /{sku}:
+    uriParameters:
+      sku:
+        type: string
+        description: The product's SKU, e.g. WM-1001.
+    /availability:
+      get:
+        description: |
+          Look up a product's current stock and price. Calls the
+          warehouse system (authoritative for existence/stock) and the
+          pricing system (best-effort for active discounts) and returns
+          a single merged result.
+        responses:
+          200:
+            body:
+              application/json:
+                type: ProductAvailability
+                example:
+                  sku: WM-1001
+                  product_name: Wempe Iron Diver Chronograph
+                  in_stock: true
+                  quantity_available: 12
+                  currency: EUR
+                  base_price: 4999.00
+                  discount_percent: 10
+                  promo_active: true
+                  final_price: 4499.10
+                  warehouse_location: HH-01
+          404:
+            description: No product exists with this SKU (per the warehouse system).
+            body:
+              application/json:
+                type: ErrorResponse
+                example:
+                  detail: "No such product: 'UNKNOWN'"
+          502:
+            description: |
+              The warehouse system (the authoritative source) is
+              unreachable or returned an unexpected response. Note: if
+              only the pricing system is unavailable, this endpoint still
+              returns 200 with promo_active: false — see
+              docs/SOLUTION_DESIGN.md §4.
+            body:
+              application/json:
+                type: ErrorResponse
+                example:
+                  detail: "Upstream system 'warehouse' is currently unavailable — please try again shortly."

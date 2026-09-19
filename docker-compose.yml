@@ -1,0 +1,26 @@
+services:
+  warehouse:
+    build: .
+    command: uvicorn legacy_warehouse.main:app --host 0.0.0.0 --port 9001
+    ports:
+      - "9001:9001"
+
+  pricing:
+    build: .
+    command: uvicorn legacy_pricing.main:app --host 0.0.0.0 --port 9002
+    ports:
+      - "9002:9002"
+
+  hub:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      # Inside the docker-compose network, containers reach each other by
+      # service name instead of localhost.
+      WAREHOUSE_SYSTEM_URL: http://warehouse:9001
+      PRICING_SYSTEM_URL: http://pricing:9002
+    depends_on:
+      - warehouse
+      - pricing
